@@ -340,6 +340,8 @@ def message_received(client, server, message):
     message_parts = message.split(' ', 1)
     if message_parts[0] == '!echo' and len(message_parts) > 1:
         server.send_message(client, message_parts[1])
+    elif message_parts[0] == '!echo':
+        server.send_message(client, '')
 
 
 PORT = 8000

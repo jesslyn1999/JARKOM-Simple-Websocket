@@ -1,0 +1,143 @@
+Client(1) said: !echo
+Client(1) said: !echo hahaha
+New client connected and was given id 2
+New client connected and was given id 3
+New client connected and was given id 4
+Client(3) said: !echo QUYLcupi
+Client(2) said: !echo dOvIymoA
+Client(3) disconnected
+Client(2) disconnected
+Client(4) said: !echo VBJYEGSX
+Client(4) disconnected
+New client connected and was given id 5
+New client connected and was given id 6
+New client connected and was given id 7
+Client(5) said: !echo blyDnZcq
+Client(7) said: !echo RcMGtWCH
+Client(5) disconnected
+Client(7) disconnected
+Client(6) said: !echo WLdDpQJe
+Client(6) disconnected
+New client connected and was given id 8
+New client connected and was given id 9
+New client connected and was given id 10
+Client(9) said: !echo zmibtRcP
+Client(8) said: !echo DbgIQbav
+Client(9) disconnected
+Client(8) disconnected
+Client(10) said: !echo GNrJDjCu
+Client(10) disconnected
+New client connected and was given id 11
+New client connected and was given id 12
+New client connected and was given id 13
+Client(12) said: !echo OHAwzLJp
+Client(11) said: !echo TXmDLEQb
+Client(12) disconnected
+Client(11) disconnected
+Client(13) said: !echo ZJWSgtqB
+Client(13) disconnected
+New client connected and was given id 14
+New client connected and was given id 15
+New client connected and was given id 16
+Client(14) said: !echo HeGFouMs
+Client(15) said: !echo RfSjuyrD
+Client(14) disconnected
+Client(15) disconnected
+Client(16) said: !echo MxAqZGCt
+Client(16) disconnected
+New client connected and was given id 17
+New client connected and was given id 18
+New client connected and was given id 19
+Client(17) said: !echo CggCtWaA
+Client(17) disconnected
+Client(18) said: !echo HuQFkPox
+Client(18) disconnected
+Client(19) said: !echo sKRXIvrg
+Client(19) disconnected
+New client connected and was given id 20
+New client connected and was given id 21
+New client connected and was given id 22
+Client(20) said: !echo tBjieBpM
+Client(21) said: !echo OLRKbWmy
+Client(20) disconnected
+Client(21) disconnected
+Client(22) said: !echo rVCxHUkY
+Client(22) disconnected
+New client connected and was given id 23
+New client connected and was given id 24
+New client connected and was given id 25
+Client(23) said: !echo khPimfaH
+Client(23) disconnected
+Client(24) said: !echo qfsSWHWR
+Client(24) disconnected
+Client(25) said: !echo bTODMfCw
+Client(25) disconnected
+New client connected and was given id 26
+New client connected and was given id 27
+New client connected and was given id 28
+Client(27) said: !echo ekowfGBS
+Client(26) said: !echo mMsrngIw
+Client(28) said: !echo QRGULynP
+Client(27) disconnected
+Client(26) disconnected
+Client(28) disconnected
+New client connected and was given id 29
+New client connected and was given id 30
+New client connected and was given id 31
+Client(29) said: !echo OhgDwDKb
+Client(31) said: !echo YznvcqJz
+Client(30) said: !echo CzaZZjrr
+Client(29) disconnected
+Client(30) disconnected
+Client(31) disconnected
+New client connected and was given id 32
+Client(32) said: !submission
+Client(32) disconnected
+New client connected and was given id 33
+server.py:172: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  logger.warn("Binary frames are not supported.")
+WARNING:__main__:Binary frames are not supported.
+server.py:165: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  logger.warn("Client must always be masked.")
+WARNING:__main__:Client must always be masked.
+Client(33) disconnected
+New client connected and was given id 34
+WARNING:__main__:Binary frames are not supported.
+server.py:181: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  logger.warn("Unknown opcode %#x." % opcode)
+WARNING:__main__:Unknown opcode 0x4.
+Client(34) disconnected
+New client connected and was given id 35
+WARNING:__main__:Binary frames are not supported.
+WARNING:__main__:Client must always be masked.
+Client(35) disconnected
+New client connected and was given id 36
+WARNING:__main__:Binary frames are not supported.
+WARNING:__main__:Client must always be masked.
+Client(36) disconnected
+New client connected and was given id 37
+WARNING:__main__:Binary frames are not supported.
+WARNING:__main__:Client must always be masked.
+Client(37) disconnected
+New client connected and was given id 38
+WARNING:__main__:Binary frames are not supported.
+WARNING:__main__:Client must always be masked.
+Client(38) disconnected
+New client connected and was given id 39
+WARNING:__main__:Binary frames are not supported.
+Client(39) disconnected
+New client connected and was given id 40
+WARNING:__main__:Binary frames are not supported.
+WARNING:__main__:Unknown opcode 0xb.
+Client(40) disconnected
+New client connected and was given id 41
+WARNING:__main__:Binary frames are not supported.
+WARNING:__main__:Unknown opcode 0xb.
+Client(41) disconnected
+New client connected and was given id 42
+WARNING:__main__:Binary frames are not supported.
+WARNING:__main__:Unknown opcode 0xb.
+Client(42) disconnected
+Client(1) said: RcMGtWCH
+Client(1) said: !echo RcMGtWCH
+Client(1) said: !echo
