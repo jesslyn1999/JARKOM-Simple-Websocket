@@ -14,8 +14,6 @@
 +---------------------------------------------------------------+
 """
 
-
-
 import sys
 import struct
 from base64 import b64encode
@@ -33,13 +31,14 @@ logging.basicConfig()
 FILE_PATH = 'haiya.zip'
 
 SERVER_PORT = 8000
+SERVER_HOST = '0.0.0.0'
 
 FIN = 0x80
 OPCODE = 0x0f
 MASKED = 0x80
 PAYLOAD_LEN = 0x7f
-PAYLOAD_LEN_EXT16 = 0x7e
-PAYLOAD_LEN_EXT64 = 0x7f
+PAYLOAD_LEN_EXT16 = 0x7e  # 126
+PAYLOAD_LEN_EXT64 = 0x7f  # 127
 
 OPCODE_CONTINUATION = 0x0
 OPCODE_TEXT = 0x1
@@ -49,9 +48,20 @@ OPCODE_PING = 0x9
 OPCODE_PONG = 0xA
 
 
-class API:
+class WebsocketServer(ThreadingMixIn, TCPServer):
 
-    def run_forever(self):
+    @classmethod
+    def new_client(cls, client, server):
+        # Called for every client connecting (after handshake)
+        print("New client connected and was given id %d" % client['id'])
+        # server.broadcast_to_all("Hey all, a new client has joined us")
+
+    @classmethod
+    def client_left(cls, client, server):
+        # Called for every client disconnecting
+        print("Client(%d) disconnected" % client['id'])
+
+    def run_until_interrupted(self):
         try:
             logger.info("Listening on port %d for clients.." % self.port)
             self.serve_forever()  # process one or many requests, inherits from TCPServer in BaseServer Class
@@ -62,22 +72,18 @@ class API:
             logger.error(str(e), exc_info=True)
             exit(1)
 
-    def new_client(self, client, server):
-        # Called for every client connecting (after handshake)
-        print("New client connected and was given id %d" % client['id'])
-        # server.send_message_to_all("Hey all, a new client has joined us")
+    def _message_received_(self, handler, msg):  # server, client, msg
+        client, server, message = self.handler_to_client(handler), self, msg
 
-    def client_left(self, client, server):
-        # Called for every client disconnecting
-        print("Client(%d) disconnected" % client['id'])
-
-    def message_received(self, client, server, message):
         # Called when a client sends a message
         print("Client id:(%d) \nmessage:%s" % (client['id'], message))
         message_parts = message.split(maxsplit=1)
         command = message_parts.pop(0)
         if command == '!echo':
-            server.send_message(client, message_parts.pop())
+            if len(message_parts) > 0:
+                server.send_message(client, message_parts.pop())
+            else:
+                server.send_message(client, '')
 
         elif command == '!submission':
             with open(FILE_PATH, "rb") as f:
@@ -93,13 +99,12 @@ class API:
                 server.send_message(client, payload_text)
 
     def send_message(self, client, msg):
-        self._unicast_(client, msg)
+        client['handler'].send_message(msg)
 
-    def send_message_to_all(self, msg):
-        self._multicast_(msg)
+    def broadcast_to_all(self, msg):
+        for client in self.clients:
+            client['handler'].send_message(msg)
 
-
-class WebsocketServer(ThreadingMixIn, TCPServer, API):
     """
     ThreadingMixIn mix-in classes can be used to support asynchronous behaviour
     """
@@ -113,9 +118,9 @@ class WebsocketServer(ThreadingMixIn, TCPServer, API):
     daemon_threads = True  # comment to keep threads alive until finished
 
     clients = []
-    id_counter = 0
+    id_current_client = 0
 
-    def __init__(self, port, host='127.0.0.1', loglevel=logging.WARNING):
+    def __init__(self, port, host='127.0.0.0', loglevel=logging.WARNING):
         logger.setLevel(loglevel)
 
         # Params: server_address, RequestHandlerClass
@@ -125,9 +130,6 @@ class WebsocketServer(ThreadingMixIn, TCPServer, API):
         # socket.getsockname() return server local address
         self.port = self.socket.getsockname()[1]
 
-    def _message_received_(self, handler, msg):  # server, client, msg
-        self.message_received(self.handler_to_client(handler), self, msg)
-
     def _ping_received_(self, handler, msg):
         handler.send_pong(msg)
 
@@ -135,9 +137,9 @@ class WebsocketServer(ThreadingMixIn, TCPServer, API):
         pass
 
     def _new_client_(self, handler):
-        self.id_counter += 1
+        self.id_current_client += 1
         client = {
-            'id': self.id_counter,
+            'id': self.id_current_client,
             'handler': handler,
             'address': handler.client_address
         }
@@ -149,13 +151,6 @@ class WebsocketServer(ThreadingMixIn, TCPServer, API):
         self.client_left(client, self)
         if client in self.clients:
             self.clients.remove(client)
-
-    def _unicast_(self, to_client, msg):
-        to_client['handler'].send_message(msg)
-
-    def _multicast_(self, msg):
-        for client in self.clients:
-            self._unicast_(client, msg)
 
     def handler_to_client(self, handler):
         for client in self.clients:
@@ -243,9 +238,9 @@ class WebSocketRequestHandler(StreamRequestHandler):
             self.keep_alive = 0
             return
 
-        if payload_length == 126:
+        if payload_length == PAYLOAD_LEN_EXT16:
             payload_length = struct.unpack(">H", self.rfile.read(2))[0]
-        elif payload_length == 127:
+        elif payload_length == PAYLOAD_LEN_EXT64:
             payload_length = struct.unpack(">Q", self.rfile.read(8))[0]
 
         masks = self.read_bytes(4)
@@ -282,7 +277,8 @@ class WebSocketRequestHandler(StreamRequestHandler):
         # elif isinstance(message, str):
         #     pass
         # else:
-        #     logger.warning('Can\'t send message, message has to be a string or bytes. Given type is %s' % type(message))
+        #     logger.warning('Can\'t send message, message
+        #     has to be a string or bytes. Given type is %s' % type(message))
         #     return False
 
         payload = message
@@ -300,7 +296,7 @@ class WebSocketRequestHandler(StreamRequestHandler):
             header.append(payload_length)
 
         # Extended payload
-        elif payload_length >= 126 and payload_length <= 65535:
+        elif payload_length >= PAYLOAD_LEN_EXT16 and payload_length <= 65535:
             header.append(FIN | opcode)
             header.append(PAYLOAD_LEN_EXT16)
             header.extend(struct.pack(">H", payload_length))
@@ -356,19 +352,16 @@ class WebSocketRequestHandler(StreamRequestHandler):
 
     @classmethod
     def make_handshake_response(cls, key):
+        GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
+        hash = sha1(key.encode() + GUID.encode())
+        response_key = b64encode(hash.digest()).strip()
+        mod_response = response_key.decode('ASCII')
         return \
             'HTTP/1.1 101 Switching Protocols\r\n' \
             'Upgrade: websocket\r\n' \
             'Connection: Upgrade\r\n' \
             'Sec-WebSocket-Accept: %s\r\n' \
-            '\r\n' % cls.calculate_response_key(key)
-
-    @classmethod
-    def calculate_response_key(cls, key):
-        GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
-        hash = sha1(key.encode() + GUID.encode())
-        response_key = b64encode(hash.digest()).strip()
-        return response_key.decode('ASCII')
+            '\r\n' % mod_response
 
     def finish(self):
         self.server._client_left_(self)
@@ -384,13 +377,5 @@ def utf8_encoding(data):
         raise e
 
 
-def utf8_decoding(data):
-    try:
-        return data.decode('utf-8')
-    except UnicodeDecodeError:
-        return False
-    except Exception as e:
-        raise e
-
-server = WebsocketServer(SERVER_PORT)
-server.run_forever()
+server = WebsocketServer(host=SERVER_HOST, port=SERVER_PORT)
+server.run_until_interrupted()
