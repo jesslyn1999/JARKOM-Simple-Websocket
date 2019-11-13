@@ -56,16 +56,17 @@ OPCODE_CLOSE_CONN = 0x8
 OPCODE_PING = 0x9
 OPCODE_PONG = 0xA
 
-allow_reuse_address = True  # TCP Server class's attribute
-daemon_threads = True  # comment to keep threads alive until finished
 
-clients = []
-id_current_client = 0
 
 # -------------------------------------------------------------------------------------------------
 
 # Web Socket Server CLASS: ------------------------------------------------------------------------
 class WebsocketServer(ThreadingMixIn, TCPServer):
+    allow_reuse_address = True  # TCP Server class's attribute
+    daemon_threads = True  # comment to keep threads alive until finished
+
+    clients = []
+    id_current_client = 0
 
     @classmethod
     def new_client(cls, client, server):
