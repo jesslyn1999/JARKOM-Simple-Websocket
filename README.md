@@ -7,9 +7,9 @@
 #### Executing the Project
 1. get the copy of server.py file.
 2. open the terminal and execute the following command.
-```
-python server.py
-```
+    ```
+    python server.py
+    ```
 
 #### Working Percentage
 | NIM       | Nama                  | what has been done?                                   | percentage  |
