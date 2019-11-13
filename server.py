@@ -1,3 +1,21 @@
+"""
++-+-+-+-+-------+-+-------------+-------------------------------+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-------+-+-------------+-------------------------------+
+|F|R|R|R| opcode|M| Payload len |    Extended payload length    |
+|I|S|S|S|  (4)  |A|     (7)     |             (16/64)           |
+|N|V|V|V|       |S|             |   (if payload len==126/127)   |
+| |1|2|3|       |K|             |                               |
++-+-+-+-+-------+-+-------------+ - - - - - - - - - - - - - - - +
+|     Extended payload length continued, if payload len == 127  |
++ - - - - - - - - - - - - - - - +-------------------------------+
+|                     Payload Data continued ...                |
++---------------------------------------------------------------+
+"""
+
+
+
 import sys
 import struct
 from base64 import b64encode
@@ -205,12 +223,14 @@ class WebSocketRequestHandler(StreamRequestHandler):
             logger.info("Client asked to close connection.")
             self.keep_alive = 0
             return
+
+        # The MASK bit simply tells whether the message is encoded.
         if not masked:
-            logger.warn("Client must always be masked.")
+            # logger.warn("Client must always be masked.")
             self.keep_alive = 0
             return
         if opcode == OPCODE_CONTINUATION:
-            logger.warn("Continuation frames are not supported.")
+            # logger.warn("Continuation frames are not supported.")
             return
         elif opcode == OPCODE_BINARY or opcode == OPCODE_TEXT:
             opcode_handler = self.server._message_received_
@@ -372,8 +392,5 @@ def utf8_decoding(data):
     except Exception as e:
         raise e
 
-
-file_log = open('log.txt', 'w+')
 server = WebsocketServer(SERVER_PORT)
 server.run_forever()
-file_log.close()
