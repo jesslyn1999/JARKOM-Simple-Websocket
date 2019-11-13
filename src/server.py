@@ -1,3 +1,5 @@
+# Base Framing Protocol: --------------------------------------------------------------------------
+# From RFC 6455 -> RFC 5234:
 """
 +-+-+-+-+-------+-+-------------+-------------------------------+
  0                   1                   2                   3
@@ -14,6 +16,7 @@
 +---------------------------------------------------------------+
 """
 
+# Dependencies: -----------------------------------------------------------------------------------
 import sys
 import struct
 from base64 import b64encode
@@ -22,17 +25,22 @@ import logging
 from socket import error as SocketError
 import errno
 from socketserver import ThreadingMixIn, TCPServer, StreamRequestHandler
-
+# MD5 LIB:
 from hashlib import md5
+# -------------------------------------------------------------------------------------------------
+
+# Global Var and Constant Declarations: -----------------------------------------------------------
+VERSION_PYTHON_THREE = 3
 
 logger = logging.getLogger(__name__)
 logging.basicConfig()
 
-FILE_PATH = 'haiya.zip'
+FILE_PATH = 'submission.zip'
 
-SERVER_PORT = 8000
-SERVER_HOST = '0.0.0.0'
+SERVER_PORT = 80
+SERVER_HOST = '0.0.0.0' # FOR DEPLOYMENT ON AWS VIRTUAL MACHINE SAKE
 
+# constants:
 FIN = 0x80
 OPCODE = 0x0f
 MASKED = 0x80
@@ -40,6 +48,7 @@ PAYLOAD_LEN = 0x7f
 PAYLOAD_LEN_EXT16 = 0x7e  # 126
 PAYLOAD_LEN_EXT64 = 0x7f  # 127
 
+# opcode types
 OPCODE_CONTINUATION = 0x0
 OPCODE_TEXT = 0x1
 OPCODE_BINARY = 0x2
@@ -47,58 +56,71 @@ OPCODE_CLOSE_CONN = 0x8
 OPCODE_PING = 0x9
 OPCODE_PONG = 0xA
 
+allow_reuse_address = True  # TCP Server class's attribute
+daemon_threads = True  # comment to keep threads alive until finished
 
+clients = []
+id_current_client = 0
+
+# -------------------------------------------------------------------------------------------------
+
+# Web Socket Server CLASS: ------------------------------------------------------------------------
 class WebsocketServer(ThreadingMixIn, TCPServer):
 
     @classmethod
     def new_client(cls, client, server):
         # Called for every client connecting (after handshake)
-        print("New client connected and was given id %d" % client['id'])
+        print("A client successfully established connection with server! Mapping ID %d to that client." % client['id'])
         # server.broadcast_to_all("Hey all, a new client has joined us")
 
     @classmethod
     def client_left(cls, client, server):
         # Called for every client disconnecting
-        print("Client(%d) disconnected" % client['id'])
+        print("A client with ID %d broke off connection." % client['id'])
 
     def run_until_interrupted(self):
         try:
-            logger.info("Listening on port %d for clients.." % self.port)
+            logger.info("Listening on PORT %d..." % self.port)
             self.serve_forever()  # process one or many requests, inherits from TCPServer in BaseServer Class
         except KeyboardInterrupt:
             self.server_close()  # close the socket
-            logger.info("Server terminated.")
+            logger.info("Terminating server...")
         except Exception as e:
             logger.error(str(e), exc_info=True)
             exit(1)
 
     def _message_received_(self, handler, msg):  # server, client, msg
-        client, server, message = self.handler_to_client(handler), self, msg
+        client, server, message = self.find_client(handler), self, msg
 
         # Called when a client sends a message
-        print("Client id:(%d) \nmessage:%s" % (client['id'], message))
+        print("A client with ID %d sent a message!" % (client['id'])) # Don't print message payload here. May hinder performance and worsen score...
         message_parts = message.split(maxsplit=1)
         command = message_parts.pop(0)
+        # FUNCTIONALITIES needed to be implemented as dictated by the assignment
+        # First functionality: case sensitive echo
         if command == '!echo':
             if len(message_parts) > 0:
                 server.send_message(client, message_parts.pop())
             else:
                 server.send_message(client, '')
 
+        # Second functinality: Recognize text payload and reply with archive containing source code and readme
         elif command == '!submission':
             with open(FILE_PATH, "rb") as f:
-                read_bytes = f.read()
-                server.send_message(client, read_bytes)
+                read_bytes_from_file = f.read()
+                server.send_message(client, read_bytes_from_file)
 
+        # Third functionality: Recognizing and reading binary file and comparing checksums
         else:
             with open(FILE_PATH, "rb") as f:
-                read_bytes = f.read()
+                read_bytes_from_file = f.read()
                 payload_text = '0'
-                if md5(message).hexdigest() == md5(read_bytes).hexdigest():
+                if md5(message).hexdigest() == md5(read_bytes_from_file).hexdigest():
                     payload_text = '1'
                 server.send_message(client, payload_text)
 
-    def send_message(self, client, msg):
+    @classmethod
+    def send_message(cls, client, msg):
         client['handler'].send_message(msg)
 
     def broadcast_to_all(self, msg):
@@ -114,13 +136,9 @@ class WebsocketServer(ThreadingMixIn, TCPServer):
     which indicates whether or not the server should wait for thread termination
     """
 
-    allow_reuse_address = True  # TCP Server class's attribute
-    daemon_threads = True  # comment to keep threads alive until finished
 
-    clients = []
-    id_current_client = 0
 
-    def __init__(self, port, host='127.0.0.0', loglevel=logging.WARNING):
+    def __init__(self, port, host=SERVER_HOST, loglevel=logging.WARNING):
         logger.setLevel(loglevel)
 
         # Params: server_address, RequestHandlerClass
@@ -134,7 +152,7 @@ class WebsocketServer(ThreadingMixIn, TCPServer):
         handler.send_pong(msg)
 
     def _pong_received_(self, handler, msg):
-        pass
+        pass # do nothing
 
     def _new_client_(self, handler):
         self.id_current_client += 1
@@ -147,17 +165,19 @@ class WebsocketServer(ThreadingMixIn, TCPServer):
         self.new_client(client, self)
 
     def _client_left_(self, handler):
-        client = self.handler_to_client(handler)
+        client = self.find_client(handler)
         self.client_left(client, self)
         if client in self.clients:
             self.clients.remove(client)
 
-    def handler_to_client(self, handler):
+    def find_client(self, handler):
         for client in self.clients:
             if client['handler'] == handler:
                 return client
 
+# -------------------------------------------------------------------------------------------------
 
+# WebSocket Request Handler CLASS: ----------------------------------------------------------------
 class WebSocketRequestHandler(StreamRequestHandler):
     """
     implements setup, handle, finish method from BaseRequestHandler
@@ -183,17 +203,17 @@ class WebSocketRequestHandler(StreamRequestHandler):
             elif self.valid_client:
                 self.read_next_message()
 
-    def read_bytes(self, num):
+    def convert_to_bytes(self, num):
         # python3 gives ordinal of byte directly
         bytes = self.rfile.read(num)
-        if sys.version_info[0] < 3:
+        if sys.version_info[0] < VERSION_PYTHON_THREE:
             return map(ord, bytes)
         else:
             return bytes
 
     def read_next_message(self):
         try:
-            b1, b2 = self.read_bytes(2)  ##
+            b1, b2 = self.convert_to_bytes(2)  ##
         except SocketError as e:  # to be replaced with ConnectionResetError for py3
             if e.errno == errno.ECONNRESET:
                 logger.info("Client closed connection.")
@@ -208,6 +228,7 @@ class WebSocketRequestHandler(StreamRequestHandler):
         masked = b2 & MASKED
         payload_length = b2 & PAYLOAD_LEN
 
+        # TURN OFF BECAUSE MAY WORSEN PERFORMANCE ACCORDING TO AUTOGRADER:
         # print("client: ", self.client_address)
         # print("fin : ", hex(fin))
         # print("opcode : ", hex(opcode))
@@ -215,7 +236,7 @@ class WebSocketRequestHandler(StreamRequestHandler):
         # print("payload_length : ", hex(payload_length))
 
         if opcode == OPCODE_CLOSE_CONN:
-            logger.info("Client asked to close connection.")
+            logger.info("a client forced to close the connection.")
             self.keep_alive = 0
             return
 
@@ -234,7 +255,7 @@ class WebSocketRequestHandler(StreamRequestHandler):
         elif opcode == OPCODE_PONG:
             opcode_handler = self.server._pong_received_
         else:
-            logger.warn("Unknown opcode %#x." % opcode)
+            logger.warn("Unrecognized op-code %#x." % opcode)
             self.keep_alive = 0
             return
 
@@ -243,9 +264,9 @@ class WebSocketRequestHandler(StreamRequestHandler):
         elif payload_length == PAYLOAD_LEN_EXT64:
             payload_length = struct.unpack(">Q", self.rfile.read(8))[0]
 
-        masks = self.read_bytes(4)
+        masks = self.convert_to_bytes(4)
         message_bytes = bytearray()
-        for message_byte in self.read_bytes(payload_length):
+        for message_byte in self.convert_to_bytes(payload_length):
             message_byte ^= masks[len(message_bytes) % 4]
             message_bytes.append(message_byte)
 
@@ -308,13 +329,23 @@ class WebSocketRequestHandler(StreamRequestHandler):
             header.extend(struct.pack(">Q", payload_length))
 
         else:
-            raise Exception("Message is too big. Consider breaking it into chunks.")
+            raise Exception("Message size too huge... split it first plz")
             return
 
         self.request.send(header + payload)
 
     def handshake(self):
-        headers = self.read_http_headers()
+        headers = {}
+        # first line should be HTTP GET
+        http_get = self.rfile.readline().decode().strip()
+        assert http_get.upper().startswith('GET')
+        # the rest should be headers
+        while True:
+            header = self.rfile.readline().decode().strip()
+            if not header:
+                break
+            head, value = header.split(':', 1)
+            headers[head.lower().strip()] = value.strip()
 
         try:
             assert headers['upgrade'].lower() == 'websocket'
@@ -325,7 +356,7 @@ class WebSocketRequestHandler(StreamRequestHandler):
         try:
             key = headers['sec-websocket-key']
         except KeyError:
-            logger.warning("Client tried to connect but was missing a key")
+            logger.warning("A client tried to establish a connection but didn't have any key")
             self.keep_alive = False
             return
 
@@ -335,20 +366,6 @@ class WebSocketRequestHandler(StreamRequestHandler):
         self.handshake_done = self.request.send(response.encode())
         self.valid_client = True
         self.server._new_client_(self)
-
-    def read_http_headers(self):
-        headers = {}
-        # first line should be HTTP GET
-        http_get = self.rfile.readline().decode().strip()
-        assert http_get.upper().startswith('GET')
-        # remaining should be headers
-        while True:
-            header = self.rfile.readline().decode().strip()
-            if not header:
-                break
-            head, value = header.split(':', 1)
-            headers[head.lower().strip()] = value.strip()
-        return headers
 
     @classmethod
     def make_handshake_response(cls, key):
@@ -367,15 +384,23 @@ class WebSocketRequestHandler(StreamRequestHandler):
         self.server._client_left_(self)
 
 
+# HELPER FUNCTIONS: -------------------------------------------------------------------------------
 def utf8_encoding(data):
     try:
         return data.encode('UTF-8')
     except UnicodeEncodeError as e:
-        logger.error("Could not encode data to UTF-8 -- %s" % e)
+        logger.error("Data cannot be encoded to UTF-8 -- %s" % e)
         return False
     except Exception as e:
         raise e
+# -------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
+
+# MAIN FUNCTION: ----------------------------------------------------------------------------------
+def main():
+    server = WebsocketServer(host=SERVER_HOST, port=SERVER_PORT)
+    server.run_until_interrupted()
 
 
-server = WebsocketServer(host=SERVER_HOST, port=SERVER_PORT)
-server.run_until_interrupted()
+main() # Calling main function, python-3.x style
+# -------------------------------------------------------------------------------------------------
